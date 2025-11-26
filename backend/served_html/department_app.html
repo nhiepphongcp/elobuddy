@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Khoa/Phòng - Quản lý Yêu cầu Sửa chữa TBYT (Local - DB)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .modal-backdrop {
+            display: none; position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 40; 
+            align-items: center; justify-content: center;
+        }
+        .modal { max-height: 90vh; overflow-y: auto; }
+        .status-badge {
+            padding: 0.25rem 0.75rem; border-radius: 9999px;
+            font-size: 0.75rem; font-weight: 500;
+            text-transform: capitalize; white-space: nowrap;
+        }
+        .status-cho-tiep-nhan { background-color: #FEF3C7; color: #92400E; } 
+        .status-da-tiep-nhan, .status-dang-xu-ly { background-color: #DBEAFE; color: #1E40AF; } 
+        .status-hoan-thanh { background-color: #D1FAE5; color: #065F46; } 
+        .status-tu-choi { background-color: #FEE2E2; color: #991B1B; } 
+        .toast {
+            position: fixed; bottom: 20px; left: 50%;
+            transform: translateX(-50%);
+            background-color: #333; color: white;
+            padding: 12px 20px; border-radius: 8px;
+            z-index: 100; opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            font-size: 0.9rem;
+        }
+        .toast.show { opacity: 1; }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 24px; height: 24px;
+            border-radius: 50%; border-left-color: #09f;
+            animation: spin 1s ease infinite;
+            display: none; margin: 0 auto; 
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <div id="app-container">
+        <!-- Login View -->
+        <div id="login-view" class="min-h-screen flex items-center justify-center p-4">
+            <div class="w-full max-w-md bg-white p-8 rounded-xl shadow-lg text-center">
+                <img src="/assets/logo_cam_pha_no_bg.png" alt="Logo Bệnh viện Cẩm Phả" class="mx-auto h-24 w-auto mb-4">
+                <h1 class="text-2xl font-bold text-slate-700 mb-2">Hệ thống Quản lý Sửa chữa TBYT</h1>
+                <p class="text-center text-slate-500 mb-6">Đăng nhập Khoa/Phòng</p>
+                <div id="login-error" class="text-red-500 text-sm text-center mb-4 hidden"></div>
+                <form id="login-form">
+                    <div class="mb-4">
+                        <label for="username" class="block text-sm font-medium text-slate-600 mb-2 text-left">Tên đăng nhập</label>
+                        <input type="text" id="username" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Tên đăng nhập khoa/phòng" required>
+                    </div>
+                    <div class="mb-6">
+                        <label for="password" class="block text-sm font-medium text-slate-600 mb-2 text-left">Mật khẩu</label>
+                        <input type="password" id="password" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Mật khẩu" required>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">Đăng nhập</button>
+                </form>
+                 <div class="mt-4 text-xs text-slate-400 text-center">
+                    <p>Tài khoản mẫu: khoa_hstc / 123</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main App View (Hidden by default) -->
+        <div id="app-view" class="hidden">
+            <header class="bg-white shadow-md sticky top-0 z-30">
+                <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                        <img src="/assets/logo_cam_pha_no_bg.png" alt="Logo" class="h-8 w-auto">
+                        <h1 class="text-xl font-bold text-blue-700">Khoa/Phòng - Quản lý Yêu cầu</h1>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="text-right">
+                            <p id="user-fullname" class="font-semibold text-slate-700"></p>
+                            <p id="user-role-dept" class="text-sm text-slate-500"></p>
+                        </div>
+                        <button id="logout-button" class="bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition-colors text-sm font-medium">Đăng xuất</button>
+                    </div>
+                </div>
+            </header>
+            
+            <main class="container mx-auto p-4 md:p-6">
+                <!-- Department User Content -->
+                <div id="department-content">
+                    <nav class="flex border-b border-slate-200 mb-6 space-x-1">
+                        <button class="dept-tab-button py-3 px-4 text-sm font-medium border-b-2 border-blue-600 text-blue-600" data-view="dept-new-request-view">Gửi Yêu Cầu Mới</button>
+                        <button class="dept-tab-button py-3 px-4 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-blue-600 hover:border-blue-500" data-view="dept-manage-requests-view">Quản Lý Yêu Cầu Đã Gửi</button>
+                    </nav>
+
+                    <div id="dept-new-request-view" class="dept-view">
+                        <div class="bg-white p-6 rounded-xl shadow-sm max-w-2xl mx-auto">
+                            <h2 class="text-xl font-semibold text-slate-700 mb-6">Phiếu Yêu Cầu Sửa Chữa Thiết Bị Y Tế</h2>
+                            <form id="new-request-form">
+                                <div class="mb-4">
+                                    <label for="equipment-name" class="block text-sm font-medium text-slate-600 mb-1">Tên thiết bị</label>
+                                    <input type="text" id="equipment-name" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500" required>
+                                </div>
+                                <div class="mb-6">
+                                    <label for="problem-description" class="block text-sm font-medium text-slate-600 mb-1">Mô tả tình trạng, sự cố</label>
+                                    <textarea id="problem-description" rows="5" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500" required></textarea>
+                                </div>
+                                <button type="submit" id="submit-new-request-btn" class="w-full bg-blue-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center">
+                                    <span class="button-text">Gửi Yêu Cầu & Xuất Phiếu</span>
+                                    <div class="spinner ml-2"></div>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div id="dept-manage-requests-view" class="dept-view hidden">
+                        <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm">
+                             <h2 class="text-xl font-semibold text-slate-700 mb-4">Danh sách yêu cầu đã gửi</h2>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm text-left text-slate-500">
+                                    <thead class="text-xs text-slate-700 uppercase bg-slate-100">
+                                        <tr>
+                                            <th scope="col" class="px-6 py-3 rounded-l-lg">Tên thiết bị</th>
+                                            <th scope="col" class="px-6 py-3">Mô tả sự cố</th>
+                                            <th scope="col" class="px-6 py-3">Ngày gửi</th>
+                                            <th scope="col" class="px-6 py-3 text-center rounded-r-lg">Trạng thái</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dept-requests-table-body"></tbody>
+                                </table>
+                                <p id="no-dept-requests" class="text-center text-slate-500 py-8 hidden">Chưa có yêu cầu nào được gửi.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <div id="toast-notification" class="toast"></div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', async function () {
+        const loginForm = document.getElementById('login-form');
+        const loginView = document.getElementById('login-view');
+        const appView = document.getElementById('app-view');
+        const departmentContent = document.getElementById('department-content');
+        const loginError = document.getElementById('login-error');
+        const logoutButton = document.getElementById('logout-button');
+
+        const userFullnameEl = document.getElementById('user-fullname');
+        const userRoleDeptEl = document.getElementById('user-role-dept');
+
+        const deptTabButtons = document.querySelectorAll('.dept-tab-button');
+        const deptViews = document.querySelectorAll('.dept-view');
+        
+        const newRequestForm = document.getElementById('new-request-form');
+        const deptRequestsTableBody = document.getElementById('dept-requests-table-body');
+        
+        const toastNotification = document.getElementById('toast-notification');
+        const submitNewRequestBtn = document.getElementById('submit-new-request-btn');
+
+        let currentUser = null;
+        const BACKEND_URL = '/api'; 
+
+        let users = {}; 
+        let departments = []; 
+        let repairRequests = [];
+
+        async function fetchData(endpoint) {
+            try {
+                const response = await fetch(`${BACKEND_URL}/${endpoint}`, { cache: 'no-store' }); 
+                if (!response.ok) {
+                    throw new Error(`Lỗi HTTP ${response.status} khi lấy dữ liệu từ ${endpoint}`);
+                }
+                return await response.json();
+            } catch (error) {
+                showToast(`Không thể tải dữ liệu ${endpoint}: ${error.message}. Đảm bảo backend đang chạy.`, true, 5000);
+                console.error(`Error fetching ${endpoint}:`, error);
+                return endpoint === 'users' ? {} : [];
+            }
+        }
+
+        async function postData(endpoint, data) {
+            try {
+                const response = await fetch(`${BACKEND_URL}/${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: `Lỗi HTTP ${response.status}` }));
+                    throw new Error(errorData.error || `Lỗi HTTP ${response.status}`);
+                }
+                return await response.json();
+            } catch (error) {
+                let detailedMessage = `Lỗi khi gửi dữ liệu đến ${endpoint}: ${error.message}`;
+                if (error.message.toLowerCase().includes('failed to fetch')) {
+                     detailedMessage = `Không thể kết nối tới backend (${endpoint}). Vui lòng kiểm tra server Python (app.py) có đang chạy và không bị chặn bởi tường lửa.`;
+                }
+                showToast(detailedMessage, true, 7000);
+                console.error(`Error posting to ${endpoint}:`, error);
+                throw error; 
+            }
+        }
+        
+        async function initializeDataForDepartmentUser() {
+            try {
+                users = await fetchData('users'); 
+                if (currentUser && currentUser.role === 'department') { 
+                    repairRequests = await fetchData('repair_requests'); 
+                } else {
+                    repairRequests = []; 
+                }
+            } catch (e) {
+                // Error already shown by fetchData
+            }
+        }
+
+
+        function toggleButtonSpinner(buttonElement, showSpinner) {
+            const buttonText = buttonElement.querySelector('.button-text');
+            const spinner = buttonElement.querySelector('.spinner');
+            if (showSpinner) {
+                if(buttonText) buttonText.style.display = 'none';
+                if(spinner) spinner.style.display = 'inline-block';
+                buttonElement.disabled = true;
+            } else {
+                if(buttonText) buttonText.style.display = 'inline';
+                if(spinner) spinner.style.display = 'none';
+                buttonElement.disabled = false;
+            }
+        }
+
+        function showToast(message, isError = false, duration = 3000) {
+            toastNotification.textContent = message;
+            toastNotification.style.backgroundColor = isError ? '#EF4444' : '#333'; 
+            toastNotification.classList.add('show');
+            setTimeout(() => {
+                toastNotification.classList.remove('show');
+            }, duration);
+        }
+        
+        function getCurrentLocalTimestamp() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`; 
+        }
+
+        function formatDate(dateString) { 
+            if (!dateString) return 'N/A';
+            try {
+                const parts = dateString.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+                if (!parts) { 
+                    const dateAttempt = new Date(dateString.replace(' ', 'T'));
+                    if (isNaN(dateAttempt.getTime())) {
+                        const directDate = new Date(dateString);
+                        if(isNaN(directDate.getTime())) return 'N/A'; 
+                        const dayOut = String(directDate.getDate()).padStart(2, '0');
+                        const monthOut = String(directDate.getMonth() + 1).padStart(2, '0');
+                        const yearOut = directDate.getFullYear();
+                        const hoursOut = String(directDate.getHours()).padStart(2, '0');
+                        const minutesOut = String(directDate.getMinutes()).padStart(2, '0');
+                        return `${dayOut}/${monthOut}/${yearOut} ${hoursOut}:${minutesOut}`;
+                    }
+                    const dayOut = String(dateAttempt.getDate()).padStart(2, '0');
+                    const monthOut = String(dateAttempt.getMonth() + 1).padStart(2, '0');
+                    const yearOut = dateAttempt.getFullYear();
+                    const hoursOut = String(dateAttempt.getHours()).padStart(2, '0');
+                    const minutesOut = String(dateAttempt.getMinutes()).padStart(2, '0');
+                    return `${dayOut}/${monthOut}/${yearOut} ${hoursOut}:${minutesOut}`;
+                }
+                const year = parseInt(parts[1], 10);
+                const month = parseInt(parts[2], 10) - 1; 
+                const day = parseInt(parts[3], 10);
+                const hours = parseInt(parts[4], 10);
+                const minutes = parseInt(parts[5], 10);
+                const date = new Date(year, month, day, hours, minutes); 
+                if (isNaN(date.getTime())) return 'N/A';
+                const dayOut = String(date.getDate()).padStart(2, '0');
+                const monthOut = String(date.getMonth() + 1).padStart(2, '0'); 
+                const yearOut = date.getFullYear();
+                const hoursOut = String(date.getHours()).padStart(2, '0');
+                const minutesOut = String(date.getMinutes()).padStart(2, '0');
+                return `${dayOut}/${monthOut}/${yearOut} ${hoursOut}:${minutesOut}`; 
+            } catch (e) {
+                console.error("Error formatting date:", dateString, e);
+                return 'N/A';
+            }
+        }
+
+
+        function getStatusClass(status) {
+            switch (status) {
+                case 'Chờ tiếp nhận': return 'status-cho-tiep-nhan';
+                case 'Đã tiếp nhận': case 'Đang xử lý': return 'status-da-tiep-nhan';
+                case 'Hoàn thành': return 'status-hoan-thanh';
+                case 'Từ chối': return 'status-tu-choi';
+                default: return 'bg-slate-200 text-slate-700';
+            }
+        }
+        
+        async function attemptAutoLogin() {
+            const storedUserData = localStorage.getItem('currentUserData');
+            if (storedUserData) {
+                const potentialUser = JSON.parse(storedUserData);
+                if (potentialUser && potentialUser.id && potentialUser.role === 'department') {
+                    currentUser = potentialUser; 
+                    await initializeDataForDepartmentUser(); 
+                    
+                    const userFromBackend = users[potentialUser.id];
+                    if (userFromBackend && userFromBackend.password === potentialUser.password) { 
+                        currentUser = userFromBackend; 
+                        loginView.classList.add('hidden');
+                        appView.classList.remove('hidden');
+                        userFullnameEl.textContent = currentUser.fullName;
+                        userRoleDeptEl.textContent = `Nhân viên | ${currentUser.departmentName}`;
+                        departmentContent.classList.remove('hidden');
+                        setActiveDeptTab('dept-new-request-view');
+                        renderDeptRequests();
+                        return true; 
+                    } else {
+                        currentUser = null; 
+                        localStorage.removeItem('currentUserData'); 
+                    }
+                } else {
+                     localStorage.removeItem('currentUserData'); 
+                }
+            }
+            loginView.classList.remove('hidden'); 
+            appView.classList.add('hidden');
+            return false; 
+        }
+        
+        loginForm.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            users = await fetchData('users'); 
+
+            const usernameInput = document.getElementById('username').value;
+            const passwordInput = document.getElementById('password').value;
+            const user = users[usernameInput]; 
+
+            if (user && user.password === passwordInput && user.role === 'department') {
+                currentUser = user; 
+                localStorage.setItem('currentUserData', JSON.stringify(currentUser)); 
+
+                await initializeDataForDepartmentUser(); 
+
+                loginView.classList.add('hidden');
+                appView.classList.remove('hidden');
+                loginError.classList.add('hidden');
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+
+                userFullnameEl.textContent = currentUser.fullName;
+                userRoleDeptEl.textContent = `Nhân viên | ${currentUser.departmentName}`;
+                
+                departmentContent.classList.remove('hidden');
+                setActiveDeptTab('dept-new-request-view');
+                renderDeptRequests(); 
+            } else if (user && user.password === passwordInput && user.role !== 'department') {
+                loginError.textContent = 'Vai trò không phù hợp. Đây là trang dành cho Khoa/Phòng.';
+                loginError.classList.remove('hidden');
+                localStorage.removeItem('currentUserData');
+            }
+            else {
+                loginError.textContent = 'Tên đăng nhập hoặc mật khẩu không đúng.';
+                loginError.classList.remove('hidden');
+                localStorage.removeItem('currentUserData');
+            }
+        });
+
+        logoutButton.addEventListener('click', function () {
+            currentUser = null;
+            localStorage.removeItem('currentUserData'); 
+            appView.classList.add('hidden');
+            loginView.classList.remove('hidden');
+            users = {};
+            departments = [];
+            repairRequests = [];
+        });
+
+        function setupTabSwitching(buttons, views, activeClassesString, defaultViewId) {
+            buttons.forEach(button => {
+                button.addEventListener('click', function () {
+                    setActiveTab(this, buttons, views, activeClassesString);
+                });
+            });
+            const defaultButton = document.querySelector(`[data-view="${defaultViewId}"]`);
+            if (defaultButton) { 
+                 setActiveTab(defaultButton, buttons, views, activeClassesString);
+            }
+        }
+        
+        function setActiveDeptTab(viewId) {
+            const targetButton = document.querySelector(`.dept-tab-button[data-view="${viewId}"]`);
+            if (targetButton) setActiveTab(targetButton, deptTabButtons, deptViews, 'border-blue-600 text-blue-600');
+        }
+
+        function setActiveTab(activeButton, allButtons, allViews, activeClassesString) {
+            const activeClasses = activeClassesString.split(' '); 
+            allButtons.forEach(btn => {
+                btn.classList.remove(...activeClasses, 'text-blue-600');
+                btn.classList.add('text-slate-500', 'border-transparent', 'hover:text-blue-600', 'hover:border-blue-500');
+            });
+            activeButton.classList.remove('text-slate-500', 'border-transparent', 'hover:text-blue-600', 'hover:border-blue-500'); 
+            activeButton.classList.add(...activeClasses, 'text-blue-600');
+            const viewId = activeButton.dataset.view;
+            allViews.forEach(view => {
+                view.classList.toggle('hidden', view.id !== viewId);
+            });
+        }
+        
+        setupTabSwitching(deptTabButtons, deptViews, 'border-blue-600 text-blue-600', 'dept-new-request-view');
+
+        newRequestForm.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            toggleButtonSpinner(submitNewRequestBtn, true);
+            const equipmentName = document.getElementById('equipment-name').value;
+            const problemDescription = document.getElementById('problem-description').value;
+            const submissionTimestamp = getCurrentLocalTimestamp(); 
+
+            const newRequestData = {
+                equipmentName: equipmentName,
+                problemDescription: problemDescription,
+                submissionTimestamp: submissionTimestamp, 
+                status: 'Chờ tiếp nhận',
+                requestingUserId: currentUser.id, 
+                departmentId: currentUser.departmentId,
+            };
+            
+            const docxPayload = {
+                khoa_phong: currentUser.departmentName,
+                truong_pho_khoa_phong: "", 
+                nguoi_thong_bao: currentUser.fullName,
+                ten_thiet_bi: equipmentName,
+                ngay_gio_thong_bao: formatDate(submissionTimestamp), 
+                nguoi_nhan_thong_bao: "", 
+                mo_ta_su_co: problemDescription
+            };
+
+            try {
+                const backendResponse = await postData('repair_requests', newRequestData); 
+                
+                const docxResponse = await fetch(`${BACKEND_URL}/generate_phieu_yeu_cau`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(docxPayload)
+                });
+
+                if (docxResponse.ok) {
+                    const blob = await docxResponse.blob();
+                    const filename = docxResponse.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || 'Phieu_Yeu_Cau_Sua_Chua.docx';
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(link.href);
+                    showToast('Yêu cầu đã gửi và phiếu đã được tải xuống.');
+                    
+                    repairRequests = await fetchData('repair_requests'); 
+                    
+                    newRequestForm.reset();
+                    renderDeptRequests();
+                    setActiveDeptTab('dept-manage-requests-view');
+                } else {
+                    const errorData = await docxResponse.json();
+                    showToast(`Lỗi tạo phiếu: ${errorData.error || docxResponse.statusText}`, true);
+                }
+            } catch (error) {
+                console.error("Error in new request submission process:", error);
+            } finally {
+                toggleButtonSpinner(submitNewRequestBtn, false);
+            }
+        });
+
+        function renderDeptRequests() {
+            if (!currentUser || currentUser.role !== 'department') return;
+            const userRequests = repairRequests.filter(req => req.requestingUserId === currentUser.id)
+                                            .sort((a,b) => new Date(b.submissionTimestamp) - new Date(a.submissionTimestamp));
+            deptRequestsTableBody.innerHTML = '';
+            const noDeptRequestsMsg = document.getElementById('no-dept-requests');
+            if (userRequests.length === 0) {
+                if(noDeptRequestsMsg) noDeptRequestsMsg.classList.remove('hidden');
+                return;
+            }
+            if(noDeptRequestsMsg) noDeptRequestsMsg.classList.add('hidden');
+            userRequests.forEach(req => {
+                const row = deptRequestsTableBody.insertRow();
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">${req.equipmentName}</td>
+                    <td class="px-6 py-4 truncate max-w-xs">${req.problemDescription}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${formatDate(req.submissionTimestamp)}</td>
+                    <td class="px-6 py-4 text-center">
+                        <span class="status-badge ${getStatusClass(req.status)}">${req.status}</span>
+                    </td>
+                `;
+            });
+        }
+        
+        attemptAutoLogin();
+    });
+</script>
+
+</body>
+</html>

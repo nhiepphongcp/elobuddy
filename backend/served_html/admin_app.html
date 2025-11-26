@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Quản lý Yêu cầu Sửa chữa TBYT (Local - DB)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .chart-container {
+            position: relative; width: 100%; max-width: 600px;
+            margin-left: auto; margin-right: auto;
+            height: 300px; max-height: 400px;
+        }
+        @media (min-width: 768px) { .chart-container { height: 350px; } }
+        .modal-backdrop {
+            display: none; position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 40; 
+            align-items: center; justify-content: center;
+        }
+        .modal { max-height: 90vh; overflow-y: auto; }
+        .status-badge {
+            padding: 0.25rem 0.75rem; border-radius: 9999px;
+            font-size: 0.75rem; font-weight: 500;
+            text-transform: capitalize; white-space: nowrap;
+        }
+        .status-cho-tiep-nhan { background-color: #FEF3C7; color: #92400E; } 
+        .status-da-tiep-nhan, .status-dang-xu-ly { background-color: #DBEAFE; color: #1E40AF; } 
+        .status-hoan-thanh { background-color: #D1FAE5; color: #065F46; } 
+        .status-tu-choi { background-color: #FEE2E2; color: #991B1B; } 
+        .toast {
+            position: fixed; bottom: 20px; left: 50%;
+            transform: translateX(-50%);
+            background-color: #333; color: white;
+            padding: 12px 20px; border-radius: 8px;
+            z-index: 100; opacity: 0;
+            transition: opacity 0.5s ease-in-out; font-size: 0.9rem;
+        }
+        .toast.show { opacity: 1; }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 24px; height: 24px;
+            border-radius: 50%; border-left-color: #09f;
+            animation: spin 1s ease infinite;
+            display: none; margin: 0 auto; 
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <div id="app-container">
+        <!-- Login View -->
+        <div id="login-view" class="min-h-screen flex items-center justify-center p-4">
+            <div class="w-full max-w-md bg-white p-8 rounded-xl shadow-lg text-center">
+                <img src="/assets/logo_cam_pha_no_bg.png" alt="Logo Bệnh viện Cẩm Phả" class="mx-auto h-24 w-auto mb-4">
+                <h1 class="text-2xl font-bold text-slate-700 mb-2">Hệ thống Quản lý Sửa chữa TBYT</h1>
+                <p class="text-center text-slate-500 mb-6">Đăng nhập Admin</p>
+                <div id="login-error" class="text-red-500 text-sm text-center mb-4 hidden"></div>
+                <form id="login-form">
+                    <div class="mb-4">
+                        <label for="username" class="block text-sm font-medium text-slate-600 mb-2 text-left">Tên đăng nhập</label>
+                        <input type="text" id="username" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Tên đăng nhập admin" required>
+                    </div>
+                    <div class="mb-6">
+                        <label for="password" class="block text-sm font-medium text-slate-600 mb-2 text-left">Mật khẩu</label>
+                        <input type="password" id="password" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Mật khẩu" required>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">Đăng nhập</button>
+                </form>
+                 <div class="mt-4 text-xs text-slate-400 text-center">
+                    <p><b>Admin:</b> admin / admin</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main App View (Hidden by default) -->
+        <div id="app-view" class="hidden">
+            <header class="bg-white shadow-md sticky top-0 z-30">
+                <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                        <img src="/assets/logo_cam_pha_no_bg.png" alt="Logo" class="h-8 w-auto">
+                        <h1 class="text-xl font-bold text-blue-700">Admin - Quản lý Yêu cầu Sửa chữa</h1>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="text-right">
+                            <p id="user-fullname" class="font-semibold text-slate-700"></p>
+                            <p id="user-role-dept" class="text-sm text-slate-500"></p>
+                        </div>
+                        <button id="logout-button" class="bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition-colors text-sm font-medium">Đăng xuất</button>
+                    </div>
+                </div>
+            </header>
+            
+            <main class="container mx-auto p-4 md:p-6">
+                 <!-- Admin Content -->
+                <div id="admin-content">
+                    <nav class="flex border-b border-slate-200 mb-6 space-x-1">
+                        <button class="admin-tab-button py-3 px-4 text-sm font-medium border-b-2" data-view="admin-request-dashboard-view">Quản Lý Yêu Cầu</button>
+                        <button class="admin-tab-button py-3 px-4 text-sm font-medium border-b-2" data-view="admin-user-management-view">Quản Lý Tài Khoản</button>
+                        <button class="admin-tab-button py-3 px-4 text-sm font-medium border-b-2" data-view="admin-department-management-view">Quản Lý Khoa/Phòng</button>
+                        <button class="admin-tab-button py-3 px-4 text-sm font-medium border-b-2" data-view="admin-stats-view">Thống Kê</button>
+                    </nav>
+
+                    <div id="admin-request-dashboard-view" class="admin-view">
+                        <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm">
+                            <h2 class="text-xl font-semibold text-slate-700 mb-4">Danh sách yêu cầu sửa chữa</h2>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                                <input type="text" id="filter-equipment" placeholder="Lọc theo tên thiết bị..." class="px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                                <select id="filter-department" class="px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                                    <option value="">Tất cả khoa/phòng</option>
+                                </select>
+                                <select id="filter-status" class="px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                                    <option value="">Tất cả trạng thái</option>
+                                    <option value="Chờ tiếp nhận">Chờ tiếp nhận</option>
+                                    <option value="Đã tiếp nhận">Đã tiếp nhận</option>
+                                     <option value="Đang xử lý">Đang xử lý</option>
+                                    <option value="Hoàn thành">Hoàn thành</option>
+                                    <option value="Từ chối">Từ chối</option>
+                                </select>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm text-left text-slate-500">
+                                    <thead class="text-xs text-slate-700 uppercase bg-slate-100">
+                                        <tr>
+                                            <th scope="col" class="px-6 py-3 rounded-l-lg">Thiết bị</th>
+                                            <th scope="col" class="px-6 py-3">Khoa/Phòng</th>
+                                            <th scope="col" class="px-6 py-3">Ngày gửi</th>
+                                            <th scope="col" class="px-6 py-3">Ngày tiếp nhận</th>
+                                            <th scope="col" class="px-6 py-3 text-center">Trạng thái</th>
+                                            <th scope="col" class="px-6 py-3 text-center rounded-r-lg">Hành động</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="admin-requests-table-body"></tbody>
+                                </table>
+                                <p id="no-admin-requests" class="text-center text-slate-500 py-8 hidden">Không có yêu cầu nào phù hợp.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="admin-user-management-view" class="admin-view hidden">
+                         <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm">
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+                               <h2 class="text-xl font-semibold text-slate-700 mb-3 sm:mb-0">Quản lý tài khoản khoa/phòng</h2>
+                               <button id="add-user-btn" class="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors text-sm">Thêm tài khoản mới</button>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm text-left text-slate-500">
+                                    <thead class="text-xs text-slate-700 uppercase bg-slate-100">
+                                        <tr>
+                                            <th scope="col" class="px-6 py-3 rounded-l-lg">Tên đăng nhập</th>
+                                            <th scope="col" class="px-6 py-3">Họ tên</th>
+                                            <th scope="col" class="px-6 py-3">Khoa/Phòng</th>
+                                            <th scope="col" class="px-6 py-3 text-center rounded-r-lg">Hành động</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="users-table-body"></tbody>
+                                </table>
+                                <p id="no-users" class="text-center text-slate-500 py-8 hidden">Chưa có tài khoản khoa/phòng nào.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="admin-department-management-view" class="admin-view hidden">
+                        <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm">
+                            <h2 class="text-xl font-semibold text-slate-700 mb-6">Quản Lý Khoa/Phòng</h2>
+                            <form id="add-department-form" class="mb-8 p-6 bg-slate-50 rounded-lg border border-slate-200">
+                                <h3 class="text-lg font-medium text-slate-700 mb-4">Thêm Khoa/Phòng Mới</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="dept-name" class="block text-sm font-medium text-slate-600 mb-1">Tên Khoa/Phòng</label>
+                                        <input type="text" id="dept-name" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" required>
+                                    </div>
+                                    <div>
+                                        <label for="dept-code" class="block text-sm font-medium text-slate-600 mb-1">Mã Khoa/Phòng (duy nhất)</label>
+                                        <input type="text" id="dept-code" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" required>
+                                    </div>
+                                    <div>
+                                        <label for="dept-contact-person" class="block text-sm font-medium text-slate-600 mb-1">Người liên hệ</label>
+                                        <input type="text" id="dept-contact-person" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                                    </div>
+                                    <div>
+                                        <label for="dept-phone" class="block text-sm font-medium text-slate-600 mb-1">Số điện thoại</label>
+                                        <input type="tel" id="dept-phone" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <label for="dept-email" class="block text-sm font-medium text-slate-600 mb-1">Email</label>
+                                        <input type="email" id="dept-email" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                                    </div>
+                                </div>
+                                <button type="submit" class="mt-6 w-full md:w-auto bg-green-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-green-700 transition-colors text-sm">Thêm Khoa/Phòng</button>
+                            </form>
+
+                            <h3 class="text-lg font-medium text-slate-700 mb-4">Danh Sách Khoa/Phòng Hiện Tại</h3>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm text-left text-slate-500">
+                                    <thead class="text-xs text-slate-700 uppercase bg-slate-100">
+                                        <tr>
+                                            <th scope="col" class="px-6 py-3 rounded-l-lg">Tên Khoa/Phòng</th>
+                                            <th scope="col" class="px-6 py-3">Mã</th>
+                                            <th scope="col" class="px-6 py-3">Người liên hệ</th>
+                                            <th scope="col" class="px-6 py-3">Điện thoại</th>
+                                            <th scope="col" class="px-6 py-3">Email</th>
+                                            <th scope="col" class="px-6 py-3 text-center rounded-r-lg">Hành động</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="departments-table-body"></tbody>
+                                </table>
+                                <p id="no-departments" class="text-center text-slate-500 py-8 hidden">Chưa có khoa/phòng nào được thêm (ngoài Phòng VT-TBYT).</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="admin-stats-view" class="admin-view hidden">
+                        <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm">
+                            <h2 class="text-xl font-semibold text-slate-700 mb-2">Thống kê yêu cầu</h2>
+                            <p class="text-slate-600 mb-6 text-sm">Biểu đồ này hiển thị tổng số lượng yêu cầu sửa chữa được gửi từ mỗi khoa/phòng, giúp ban quản lý có cái nhìn tổng quan về khối lượng công việc và tần suất hỏng hóc thiết bị tại các đơn vị khác nhau.</p>
+                             <div class="chart-container">
+                                <canvas id="requestsByDeptChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modal for processing request / adding user / changing password -->
+    <div id="form-modal" class="modal-backdrop">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg m-4 modal">
+            <div class="p-5 border-b border-slate-200 flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-slate-700" id="modal-title-text">Chi tiết Yêu cầu</h3>
+                <button id="close-modal-btn" class="text-slate-400 hover:text-slate-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4" id="modal-content-area">
+                <div id="modal-request-details-content" class="hidden">
+                    <input type="hidden" id="modal-request-id">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm mb-3">
+                        <div><strong>Tên thiết bị:</strong> <span id="modal-equipment-name" class="text-slate-700"></span></div>
+                        <div><strong>Khoa/Phòng:</strong> <span id="modal-department" class="text-slate-700"></span></div>
+                        <div><strong>Người gửi:</strong> <span id="modal-requester" class="text-slate-700"></span></div>
+                        <div><strong>Ngày gửi:</strong> <span id="modal-submission-date" class="text-slate-700"></span></div>
+                    </div>
+                    <div class="mb-3"><strong>Mô tả sự cố:</strong> <p class="text-slate-600 bg-slate-50 p-3 rounded-md mt-1 text-sm" id="modal-problem-description"></p></div>
+                    <div id="reception-info" class="hidden">
+                        <hr class="my-4 border-slate-200">
+                        <h4 class="font-semibold text-md text-slate-700 mb-2">Thông tin xử lý</h4>
+                        <p class="text-sm mb-3"><strong>Ngày tiếp nhận:</strong> <span id="modal-reception-date" class="text-slate-700"></span></p>
+                        <div class="mb-3">
+                            <label for="modal-inspection-result" class="block text-sm font-medium text-slate-600 mb-1">Kết quả kiểm tra</label>
+                            <textarea id="modal-inspection-result" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                        </div>
+                        <div>
+                            <label for="modal-solution" class="block text-sm font-medium text-slate-600 mb-1">Phương án / Kết quả xử lý</label>
+                            <textarea id="modal-solution" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div id="modal-user-form-content" class="hidden space-y-3">
+                     <input type="hidden" id="modal-user-id">
+                    <div>
+                        <label for="modal-user-username" class="block text-sm font-medium text-slate-600 mb-1">Tên đăng nhập</label>
+                        <input type="text" id="modal-user-username" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="modal-user-fullname" class="block text-sm font-medium text-slate-600 mb-1">Họ tên</label>
+                        <input type="text" id="modal-user-fullname" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="modal-user-department" class="block text-sm font-medium text-slate-600 mb-1">Khoa/Phòng</label>
+                        <select id="modal-user-department" class="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></select>
+                    </div>
+                    <div>
+                        <label for="modal-user-password" class="block text-sm font-medium text-slate-600 mb-1">Mật khẩu</label>
+                        <input type="password" id="modal-user-password" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Để trống nếu không muốn thay đổi">
+                    </div>
+                </div>
+            </div>
+            <div class="p-5 bg-slate-50 border-t border-slate-200 flex justify-end space-x-3" id="modal-actions-area">
+                <button id="modal-action-close" class="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">Đóng</button>
+                <button id="modal-action-receive" class="hidden px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">Tiếp nhận</button>
+                <button id="modal-action-complete" class="hidden px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 flex items-center justify-center">
+                    <span class="button-text">Hoàn thành & Xuất BB</span>
+                    <div class="spinner ml-2"></div>
+                </button>
+                <button id="modal-action-reject" class="hidden px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600">Từ chối</button>
+                <button id="modal-action-save-user" class="hidden px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">Lưu tài khoản</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="toast-notification" class="toast"></div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', async function () {
+        const loginForm = document.getElementById('login-form');
+        const loginView = document.getElementById('login-view');
+        const appView = document.getElementById('app-view');
+        const adminContent = document.getElementById('admin-content'); 
+        const loginError = document.getElementById('login-error');
+        const logoutButton = document.getElementById('logout-button');
+
+        const userFullnameEl = document.getElementById('user-fullname');
+        const userRoleDeptEl = document.getElementById('user-role-dept');
+
+        const adminTabButtons = document.querySelectorAll('.admin-tab-button');
+        const adminViews = document.querySelectorAll('.admin-view');
+        
+        const adminRequestsTableBody = document.getElementById('admin-requests-table-body');
+        const usersTableBody = document.getElementById('users-table-body');
+        const departmentsTableBody = document.getElementById('departments-table-body');
+
+        const filterEquipmentInput = document.getElementById('filter-equipment');
+        const filterDepartmentSelect = document.getElementById('filter-department');
+        const filterStatusSelect = document.getElementById('filter-status');
+
+        const formModal = document.getElementById('form-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const modalTitleText = document.getElementById('modal-title-text');
+        
+        const modalRequestDetailsContent = document.getElementById('modal-request-details-content');
+        const modalUserFormContent = document.getElementById('modal-user-form-content');
+
+        const modalActionClose = document.getElementById('modal-action-close');
+        const modalActionReceive = document.getElementById('modal-action-receive');
+        const modalActionComplete = document.getElementById('modal-action-complete');
+        const modalActionReject = document.getElementById('modal-action-reject');
+        const modalActionSaveUser = document.getElementById('modal-action-save-user');
+
+        const addUserBtn = document.getElementById('add-user-btn');
+        const addDepartmentForm = document.getElementById('add-department-form');
+        const toastNotification = document.getElementById('toast-notification');
+
+        let currentUser = null;
+        let requestsChart = null;
+        const BACKEND_URL = '/api'; 
+
+        let users = {}; 
+        let departments = [];
+        let repairRequests = [];
+
+        async function fetchData(endpoint) {
+            try {
+                const response = await fetch(`${BACKEND_URL}/${endpoint}`, { cache: 'no-store' });
+                if (!response.ok) {
+                    throw new Error(`Lỗi HTTP ${response.status} khi lấy dữ liệu từ ${endpoint}`);
+                }
+                return await response.json();
+            } catch (error) {
+                showToast(`Không thể tải dữ liệu ${endpoint}: ${error.message}. Đảm bảo backend đang chạy.`, true, 5000);
+                console.error(`Error fetching ${endpoint}:`, error);
+                return endpoint === 'users' ? {} : [];
+            }
+        }
+
+        async function postData(endpoint, data) {
+            try {
+                const response = await fetch(`${BACKEND_URL}/${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: `Lỗi HTTP ${response.status}` }));
+                    throw new Error(errorData.error || `Lỗi HTTP ${response.status}`);
+                }
+                return await response.json();
+            } catch (error) {
+                let detailedMessage = `Lỗi khi gửi dữ liệu đến ${endpoint}: ${error.message}`;
+                if (error.message.toLowerCase().includes('failed to fetch')) {
+                     detailedMessage = `Không thể kết nối tới backend (${endpoint}). Vui lòng kiểm tra server Python (app.py) có đang chạy và không bị chặn bởi tường lửa.`;
+                }
+                showToast(detailedMessage, true, 7000);
+                console.error(`Error posting to ${endpoint}:`, error);
+                throw error; 
+            }
+        }
+        
+        async function deleteData(endpoint, id) {
+             try {
+                const response = await fetch(`${BACKEND_URL}/${endpoint}/${id}`, {
+                    method: 'DELETE'
+                });
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: `Lỗi HTTP ${response.status}` }));
+                    throw new Error(errorData.error || `Lỗi HTTP ${response.status}`);
+                }
+                return await response.json();
+            } catch (error) {
+                let detailedMessage = `Lỗi khi xóa dữ liệu từ ${endpoint}: ${error.message}`;
+                 if (error.message.toLowerCase().includes('failed to fetch')) {
+                     detailedMessage = `Không thể kết nối tới backend (${endpoint}). Vui lòng kiểm tra server Python (app.py) có đang chạy và không bị chặn bởi tường lửa.`;
+                }
+                showToast(detailedMessage, true, 7000);
+                console.error(`Error deleting from ${endpoint}:`, error);
+                throw error;
+            }
+        }
+
+        async function initializeAdminData() {
+            try {
+                users = await fetchData('users');
+                departments = await fetchData('departments');
+                repairRequests = await fetchData('repair_requests');
+            } catch (e) {
+                // Error already shown
+            }
+        }
+
+        function toggleButtonSpinner(buttonElement, showSpinner) {
+            const buttonText = buttonElement.querySelector('.button-text');
+            const spinner = buttonElement.querySelector('.spinner');
+            if (showSpinner) {
+                if(buttonText) buttonText.style.display = 'none';
+                if(spinner) spinner.style.display = 'inline-block';
+                buttonElement.disabled = true;
+            } else {
+                if(buttonText) buttonText.style.display = 'inline';
+                if(spinner) spinner.style.display = 'none';
+                buttonElement.disabled = false;
+            }
+        }
+
+        function showToast(message, isError = false, duration = 3000) {
+            toastNotification.textContent = message;
+            toastNotification.style.backgroundColor = isError ? '#EF4444' : '#333'; 
+            toastNotification.classList.add('show');
+            setTimeout(() => {
+                toastNotification.classList.remove('show');
+            }, duration);
+        }
+        
+        function getCurrentLocalTimestamp() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`; 
+        }
+
+        function formatDate(dateString) { 
+            if (!dateString) return 'N/A';
+            try {
+                const parts = dateString.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+                if (!parts) { 
+                    const dateAttempt = new Date(dateString.replace(' ', 'T'));
+                    if (isNaN(dateAttempt.getTime())) {
+                        const directDate = new Date(dateString);
+                        if(isNaN(directDate.getTime())) return 'N/A'; 
+                        const dayOut = String(directDate.getDate()).padStart(2, '0');
+                        const monthOut = String(directDate.getMonth() + 1).padStart(2, '0');
+                        const yearOut = directDate.getFullYear();
+                        const hoursOut = String(directDate.getHours()).padStart(2, '0');
+                        const minutesOut = String(directDate.getMinutes()).padStart(2, '0');
+                        return `${dayOut}/${monthOut}/${yearOut} ${hoursOut}:${minutesOut}`;
+                    }
+                    const dayOut = String(dateAttempt.getDate()).padStart(2, '0');
+                    const monthOut = String(dateAttempt.getMonth() + 1).padStart(2, '0');
+                    const yearOut = dateAttempt.getFullYear();
+                    const hoursOut = String(dateAttempt.getHours()).padStart(2, '0');
+                    const minutesOut = String(dateAttempt.getMinutes()).padStart(2, '0');
+                    return `${dayOut}/${monthOut}/${yearOut} ${hoursOut}:${minutesOut}`;
+                }
+                const year = parseInt(parts[1], 10);
+                const month = parseInt(parts[2], 10) - 1; 
+                const day = parseInt(parts[3], 10);
+                const hours = parseInt(parts[4], 10);
+                const minutes = parseInt(parts[5], 10);
+                const date = new Date(year, month, day, hours, minutes); 
+                if (isNaN(date.getTime())) return 'N/A';
+                const dayOut = String(date.getDate()).padStart(2, '0');
+                const monthOut = String(date.getMonth() + 1).padStart(2, '0'); 
+                const yearOut = date.getFullYear();
+                const hoursOut = String(date.getHours()).padStart(2, '0');
+                const minutesOut = String(date.getMinutes()).padStart(2, '0');
+                return `${dayOut}/${monthOut}/${yearOut} ${hoursOut}:${minutesOut}`; 
+            } catch (e) {
+                console.error("Error formatting date:", dateString, e);
+                return 'N/A';
+            }
+        }
+
+        function getStatusClass(status) {
+            switch (status) {
+                case 'Chờ tiếp nhận': return 'status-cho-tiep-nhan';
+                case 'Đã tiếp nhận': case 'Đang xử lý': return 'status-da-tiep-nhan';
+                case 'Hoàn thành': return 'status-hoan-thanh';
+                case 'Từ chối': return 'status-tu-choi';
+                default: return 'bg-slate-200 text-slate-700';
+            }
+        }
+        
+        function populateDepartmentFilter() {
+            filterDepartmentSelect.innerHTML = '<option value="">Tất cả khoa/phòng</option>';
+            departments.forEach(dept => {
+                if (dept.id === 'VT') return; 
+                const option = document.createElement('option');
+                option.value = dept.id;
+                option.textContent = dept.name;
+                filterDepartmentSelect.appendChild(option);
+            });
+        }
+        
+        function populateDepartmentSelect(selectElementId) {
+            const selectElement = document.getElementById(selectElementId);
+            if (!selectElement) return;
+            selectElement.innerHTML = ''; 
+            departments.forEach(dept => {
+                if (dept.id === 'VT') return; 
+                const option = document.createElement('option');
+                option.value = dept.id;
+                option.textContent = dept.name;
+                selectElement.appendChild(option);
+            });
+        }
+
+        async function attemptAutoLogin() {
+            const storedAdminData = localStorage.getItem('currentAdminData');
+            if (storedAdminData) {
+                const potentialAdmin = JSON.parse(storedAdminData);
+                if (potentialAdmin && potentialAdmin.id && potentialAdmin.role === 'admin') {
+                    currentUser = potentialAdmin; 
+                    await initializeAdminData(); 
+                    
+                    const adminFromBackend = users[potentialAdmin.id];
+                    if (adminFromBackend && adminFromBackend.password === potentialAdmin.password) { 
+                        currentUser = adminFromBackend; 
+                        loginView.classList.add('hidden');
+                        appView.classList.remove('hidden');
+                        userFullnameEl.textContent = currentUser.fullName;
+                        userRoleDeptEl.textContent = `Quản trị viên | ${currentUser.departmentName}`;
+                        
+                        adminContent.classList.remove('hidden');
+                        setActiveAdminTab('admin-request-dashboard-view');
+                        renderAdminRequests();
+                        populateDepartmentFilter();
+                        renderUsersTable();
+                        renderDepartmentsTable(); 
+                        renderRequestsByDeptChart(); 
+                        return true;
+                    } else {
+                        currentUser = null; 
+                        localStorage.removeItem('currentAdminData');
+                    }
+                } else {
+                     localStorage.removeItem('currentAdminData'); 
+                }
+            }
+            loginView.classList.remove('hidden'); 
+            appView.classList.add('hidden');
+            return false; 
+        }
+
+
+        loginForm.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            await initializeAdminData(); 
+
+            const usernameInput = document.getElementById('username').value;
+            const passwordInput = document.getElementById('password').value;
+            const user = users[usernameInput]; 
+
+            if (user && user.password === passwordInput && user.role === 'admin') {
+                currentUser = user;
+                localStorage.setItem('currentAdminData', JSON.stringify(currentUser)); 
+
+                loginView.classList.add('hidden');
+                appView.classList.remove('hidden');
+                loginError.classList.add('hidden');
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+
+                userFullnameEl.textContent = currentUser.fullName;
+                userRoleDeptEl.textContent = `Quản trị viên | ${currentUser.departmentName}`;
+                
+                adminContent.classList.remove('hidden');
+                setActiveAdminTab('admin-request-dashboard-view');
+                renderAdminRequests();
+                populateDepartmentFilter();
+                renderUsersTable();
+                renderDepartmentsTable(); 
+                renderRequestsByDeptChart(); 
+            } else if (user && user.password === passwordInput && user.role !== 'admin') {
+                loginError.textContent = 'Vai trò không phù hợp. Đây là trang dành cho Admin.';
+                loginError.classList.remove('hidden');
+                localStorage.removeItem('currentAdminData');
+            }
+             else {
+                loginError.textContent = 'Tên đăng nhập hoặc mật khẩu không đúng.';
+                loginError.classList.remove('hidden');
+                localStorage.removeItem('currentAdminData');
+            }
+        });
+
+        logoutButton.addEventListener('click', function () {
+            currentUser = null;
+            localStorage.removeItem('currentAdminData'); 
+            appView.classList.add('hidden');
+            loginView.classList.remove('hidden');
+            if (requestsChart) {
+                requestsChart.destroy();
+                requestsChart = null;
+            }
+            users = {};
+            departments = [];
+            repairRequests = [];
+        });
+
+        function setupTabSwitching(buttons, views, activeClassesString, defaultViewId) {
+            buttons.forEach(button => {
+                button.addEventListener('click', function () {
+                    setActiveTab(this, buttons, views, activeClassesString);
+                });
+            });
+            const defaultButton = document.querySelector(`[data-view="${defaultViewId}"]`);
+            if (defaultButton) { 
+                 setActiveTab(defaultButton, buttons, views, activeClassesString);
+            }
+        }
+        
+        function setActiveAdminTab(viewId) {
+            const targetButton = document.querySelector(`.admin-tab-button[data-view="${viewId}"]`);
+            if (targetButton) setActiveTab(targetButton, adminTabButtons, adminViews, 'border-blue-600 text-blue-600');
+        }
+
+        function setActiveTab(activeButton, allButtons, allViews, activeClassesString) {
+            const activeClasses = activeClassesString.split(' '); 
+            allButtons.forEach(btn => {
+                btn.classList.remove(...activeClasses, 'text-blue-600');
+                btn.classList.add('text-slate-500', 'border-transparent', 'hover:text-blue-600', 'hover:border-blue-500');
+            });
+            activeButton.classList.remove('text-slate-500', 'border-transparent', 'hover:text-blue-600', 'hover:border-blue-500'); 
+            activeButton.classList.add(...activeClasses, 'text-blue-600');
+            const viewId = activeButton.dataset.view;
+            allViews.forEach(view => {
+                view.classList.toggle('hidden', view.id !== viewId);
+            });
+        }
+        
+        setupTabSwitching(adminTabButtons, adminViews, 'border-blue-600 text-blue-600', 'admin-request-dashboard-view');
+
+        function renderAdminRequests() {
+            if (!currentUser || currentUser.role !== 'admin') return;
+            const equipmentFilter = filterEquipmentInput.value.toLowerCase();
+            const departmentFilter = filterDepartmentSelect.value;
+            const statusFilter = filterStatusSelect.value;
+
+            const filteredRequests = repairRequests.filter(req => {
+                const equipmentMatch = req.equipmentName.toLowerCase().includes(equipmentFilter);
+                const departmentMatch = !departmentFilter || req.departmentId === departmentFilter;
+                const statusMatch = !statusFilter || req.status === statusFilter;
+                return equipmentMatch && departmentMatch && statusMatch;
+            }).sort((a,b) => new Date(b.submissionTimestamp) - new Date(a.submissionTimestamp));
+
+            adminRequestsTableBody.innerHTML = '';
+            const noAdminRequestsMsg = document.getElementById('no-admin-requests');
+            if (filteredRequests.length === 0) {
+                if(noAdminRequestsMsg) noAdminRequestsMsg.classList.remove('hidden');
+                return;
+            }
+            if(noAdminRequestsMsg) noAdminRequestsMsg.classList.add('hidden');
+            filteredRequests.forEach(req => {
+                const department = departments.find(d => d.id === req.departmentId);
+                const row = adminRequestsTableBody.insertRow();
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">${req.equipmentName}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${department ? department.name : 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${formatDate(req.submissionTimestamp)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${formatDate(req.receptionTimestamp)}</td>
+                    <td class="px-6 py-4 text-center">
+                        <span class="status-badge ${getStatusClass(req.status)}">${req.status}</span>
+                    </td>
+                    <td class="px-6 py-4 text-center whitespace-nowrap">
+                        <button class="text-blue-600 hover:text-blue-800 view-request-btn" data-id="${req.id}">Xem/Xử lý</button>
+                    </td>
+                `;
+            });
+            document.querySelectorAll('.view-request-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    openRequestModal(Number(this.dataset.id));
+                });
+            });
+        }
+        
+        filterEquipmentInput.addEventListener('input', renderAdminRequests);
+        filterDepartmentSelect.addEventListener('change', renderAdminRequests);
+        filterStatusSelect.addEventListener('change', renderAdminRequests);
+
+        function openModal() { formModal.style.display = 'flex'; }
+        function closeModal() {
+            formModal.style.display = 'none';
+            modalRequestDetailsContent.classList.add('hidden');
+            modalUserFormContent.classList.add('hidden');
+            modalActionReceive.classList.add('hidden');
+            modalActionComplete.classList.add('hidden');
+            modalActionReject.classList.add('hidden');
+            modalActionSaveUser.classList.add('hidden');
+            toggleButtonSpinner(modalActionComplete, false); 
+        }
+        closeModalBtn.addEventListener('click', closeModal);
+        modalActionClose.addEventListener('click', closeModal);
+
+        function openRequestModal(requestId) {
+            const request = repairRequests.find(r => r.id === requestId);
+            if (!request) return;
+            modalTitleText.textContent = 'Chi tiết Yêu cầu Sửa chữa';
+            modalRequestDetailsContent.classList.remove('hidden');
+            modalUserFormContent.classList.add('hidden');
+
+            document.getElementById('modal-request-id').value = request.id;
+            document.getElementById('modal-equipment-name').textContent = request.equipmentName;
+            const dept = departments.find(d => d.id === request.departmentId);
+            const reqUser = users[request.requestingUserId]; 
+            document.getElementById('modal-department').textContent = dept ? dept.name : 'N/A';
+            document.getElementById('modal-requester').textContent = reqUser ? reqUser.fullName : 'N/A';
+            document.getElementById('modal-submission-date').textContent = formatDate(request.submissionTimestamp);
+            document.getElementById('modal-problem-description').textContent = request.problemDescription;
+
+            const receptionInfoDiv = document.getElementById('reception-info');
+            const inspectionResultInput = document.getElementById('modal-inspection-result');
+            const solutionInput = document.getElementById('modal-solution');
+
+            if (request.status === 'Chờ tiếp nhận') {
+                receptionInfoDiv.classList.add('hidden');
+                modalActionReceive.classList.remove('hidden');
+                modalActionComplete.classList.add('hidden');
+                modalActionReject.classList.remove('hidden');
+                inspectionResultInput.value = ''; solutionInput.value = '';
+                inspectionResultInput.readOnly = true; solutionInput.readOnly = true;
+            } else {
+                receptionInfoDiv.classList.remove('hidden');
+                document.getElementById('modal-reception-date').textContent = formatDate(request.receptionTimestamp);
+                inspectionResultInput.value = request.inspectionResult || '';
+                solutionInput.value = request.solutionDetails || '';
+                if (request.status === 'Đã tiếp nhận' || request.status === 'Đang xử lý') {
+                    modalActionReceive.classList.add('hidden');
+                    modalActionComplete.classList.remove('hidden');
+                    modalActionReject.classList.remove('hidden');
+                    inspectionResultInput.readOnly = false; solutionInput.readOnly = false;
+                } else {
+                    modalActionReceive.classList.add('hidden');
+                    modalActionComplete.classList.add('hidden');
+                    modalActionReject.classList.add('hidden');
+                    inspectionResultInput.readOnly = true; solutionInput.readOnly = true;
+                }
+            }
+            openModal();
+        }
+
+        modalActionReceive.onclick = async function() {
+            const requestId = Number(document.getElementById('modal-request-id').value);
+            const requestIndex = repairRequests.findIndex(r => r.id === requestId);
+            if (requestIndex !== -1) {
+                const updatedRequestData = { 
+                    ...repairRequests[requestIndex], 
+                    status: 'Đã tiếp nhận', 
+                    receptionTimestamp: getCurrentLocalTimestamp() 
+                };
+                try {
+                    const backendResponse = await postData(`repair_requests/${requestId}`, updatedRequestData);
+                    repairRequests[requestIndex] = backendResponse.request;
+                    showToast('Yêu cầu đã được tiếp nhận.');
+                    renderAdminRequests(); renderRequestsByDeptChart();
+                    closeModal();
+                } catch (error) { /* showToast handled in postData */ }
+            }
+        };
+
+        modalActionComplete.onclick = async function() {
+            toggleButtonSpinner(modalActionComplete, true);
+            const requestId = Number(document.getElementById('modal-request-id').value);
+            const requestIndex = repairRequests.findIndex(r => r.id === requestId);
+            
+            if (requestIndex === -1) {
+                showToast('Lỗi: Không tìm thấy yêu cầu.', true);
+                toggleButtonSpinner(modalActionComplete, false);
+                return;
+            }
+
+            const request = repairRequests[requestIndex];
+            const inspectionResult = document.getElementById('modal-inspection-result').value;
+            const solutionDetails = document.getElementById('modal-solution').value;
+            const completionTimestamp = getCurrentLocalTimestamp(); 
+            const finalInspectionTimestamp = request.inspectionTimestamp || completionTimestamp;
+
+            const updatedRequestData = {
+                ...request,
+                status: 'Hoàn thành',
+                inspectionResult: inspectionResult,
+                solutionDetails: solutionDetails,
+                completionTimestamp: completionTimestamp,
+                inspectionTimestamp: finalInspectionTimestamp
+            };
+
+            const requestingUser = users[request.requestingUserId];
+            const adminUser = currentUser; 
+
+            const docxPayload = {
+                bb_khoa_phong_header: departments.find(d => d.id === request.departmentId)?.name || 'N/A',
+                thoi_diem_yeu_cau: formatDate(request.submissionTimestamp), 
+                thoi_diem_kiem_tra: formatDate(finalInspectionTimestamp),    
+                nguoi_quan_ly_su_dung: requestingUser?.fullName || 'N/A',
+                bb_khoa_phong_user: requestingUser?.departmentName || 'N/A',
+                dien_thoai_lien_he: requestingUser?.phone || '____________________',
+                email_lien_he: requestingUser?.email || '____________________',
+                bb_ten_thiet_bi: request.equipmentName,
+                thoi_gian_su_dung: '____________________', 
+                ket_qua_kiem_tra: inspectionResult,
+                huong_khac_phuc_ket_qua: solutionDetails,
+                ten_khoa_su_dung_ky: requestingUser?.departmentName || 'N/A',
+                ten_nguoi_kiem_tra_ky: adminUser?.fullName || 'N/A'
+            };
+
+            try {
+                const backendResponse = await postData(`repair_requests/${requestId}`, updatedRequestData); 
+                
+                const docxResponse = await fetch(`${BACKEND_URL}/generate_bien_ban_kiem_tra`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(docxPayload)
+                });
+
+                if (docxResponse.ok) {
+                    const blob = await docxResponse.blob();
+                    const filename = docxResponse.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || 'Bien_Ban_Kiem_Tra.docx';
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(link.href);
+                    
+                    repairRequests[requestIndex] = backendResponse.request; 
+                    showToast('Yêu cầu đã hoàn thành và biên bản đã được tải xuống.');
+                    renderAdminRequests(); renderRequestsByDeptChart();
+                    closeModal();
+                } else {
+                    const errorData = await docxResponse.json();
+                    showToast(`Lỗi tạo biên bản: ${errorData.error || docxResponse.statusText}`, true);
+                }
+            } catch (error) {
+                console.error("Error in complete request process:", error);
+            } finally {
+                toggleButtonSpinner(modalActionComplete, false);
+            }
+        };
+        
+        modalActionReject.onclick = async function() {
+            const requestId = Number(document.getElementById('modal-request-id').value);
+            const requestIndex = repairRequests.findIndex(r => r.id === requestId);
+            if (requestIndex !== -1) {
+                if (confirm(`Bạn có chắc chắn muốn từ chối yêu cầu cho thiết bị "${repairRequests[requestIndex].equipmentName}" không?`)) {
+                    const updatedRequestData = {
+                        ...repairRequests[requestIndex],
+                        status: 'Từ chối',
+                        inspectionResult: repairRequests[requestIndex].inspectionResult || 'N/A - Yêu cầu bị từ chối',
+                        solutionDetails: repairRequests[requestIndex].solutionDetails || 'N/A - Yêu cầu bị từ chối',
+                        completionTimestamp: getCurrentLocalTimestamp()
+                    };
+                    try {
+                        const backendResponse = await postData(`repair_requests/${requestId}`, updatedRequestData);
+                        repairRequests[requestIndex] = backendResponse.request;
+                        showToast('Yêu cầu đã bị từ chối.');
+                        renderAdminRequests(); renderRequestsByDeptChart(); 
+                        closeModal();
+                    } catch (error) { /* showToast handled in postData */ }
+                }
+            }
+        };
+
+        // User Management
+        function renderUsersTable() {
+            if (!currentUser || currentUser.role !== 'admin') return;
+            usersTableBody.innerHTML = '';
+            const departmentUsers = Object.values(users).filter(u => u.role === 'department')
+                                      .sort((a,b) => a.fullName.localeCompare(b.fullName));
+            const noUsersMsg = document.getElementById('no-users');
+            if (departmentUsers.length === 0) {
+                if(noUsersMsg) noUsersMsg.classList.remove('hidden');
+                return;
+            }
+            if(noUsersMsg) noUsersMsg.classList.add('hidden');
+            departmentUsers.forEach(user => {
+                const row = usersTableBody.insertRow();
+                const dept = departments.find(d => d.id === user.departmentId);
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">${user.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${user.fullName}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${dept ? dept.name : 'N/A'}</td>
+                    <td class="px-6 py-4 text-center whitespace-nowrap space-x-2">
+                        <button class="text-blue-600 hover:text-blue-800 edit-user-btn" data-id="${user.id}">Sửa</button>
+                        <button class="text-red-600 hover:text-red-800 delete-user-btn" data-id="${user.id}">Xóa</button>
+                    </td>
+                `;
+            });
+            document.querySelectorAll('.edit-user-btn').forEach(btn => btn.addEventListener('click', function() { openUserModal(this.dataset.id); }));
+            document.querySelectorAll('.delete-user-btn').forEach(btn => btn.addEventListener('click', function() { deleteUser(this.dataset.id); }));
+        }
+
+        function openUserModal(userIdToEdit = null) { 
+            modalTitleText.textContent = userIdToEdit ? 'Chỉnh sửa Tài khoản Khoa/Phòng' : 'Thêm Tài khoản Khoa/Phòng';
+            modalRequestDetailsContent.classList.add('hidden');
+            modalUserFormContent.classList.remove('hidden');
+            modalActionReceive.classList.add('hidden'); modalActionComplete.classList.add('hidden');
+            modalActionReject.classList.add('hidden'); modalActionSaveUser.classList.remove('hidden');
+            populateDepartmentSelect('modal-user-department');
+
+            const usernameInput = document.getElementById('modal-user-username');
+            const fullnameInput = document.getElementById('modal-user-fullname');
+            const departmentSelect = document.getElementById('modal-user-department');
+            const passwordInput = document.getElementById('modal-user-password');
+            const userIdHiddenInput = document.getElementById('modal-user-id');
+
+            if (userIdToEdit) {
+                const user = users[userIdToEdit]; 
+                if(user){
+                    userIdHiddenInput.value = user.id; usernameInput.value = user.id; 
+                    usernameInput.readOnly = true; fullnameInput.value = user.fullName;
+                    departmentSelect.value = user.departmentId;
+                    passwordInput.placeholder = "Để trống nếu không muốn thay đổi";
+                } else { 
+                    showToast("Lỗi: Không tìm thấy người dùng.", true); closeModal(); return;
+                }
+            } else {
+                userIdHiddenInput.value = ''; usernameInput.value = '';
+                usernameInput.readOnly = false; fullnameInput.value = '';
+                departmentSelect.value = departments.length > 0 ? departments.find(d => d.id !== 'VT')?.id || '' : ''; 
+                passwordInput.placeholder = "Nhập mật khẩu (bắt buộc)";
+            }
+            passwordInput.value = ''; 
+            openModal();
+        }
+
+        addUserBtn.addEventListener('click', () => openUserModal(null));
+
+        modalActionSaveUser.onclick = async function() {
+            const originalUserId = document.getElementById('modal-user-id').value; 
+            const username = document.getElementById('modal-user-username').value.trim();
+            const fullName = document.getElementById('modal-user-fullname').value.trim();
+            const departmentId = document.getElementById('modal-user-department').value;
+            const password = document.getElementById('modal-user-password').value;
+
+            if (!username || !fullName || !departmentId) {
+                showToast('Vui lòng điền đầy đủ các trường bắt buộc.', true); return;
+            }
+            const dept = departments.find(d => d.id === departmentId);
+            if (!dept || dept.id === 'VT') { 
+                showToast('Khoa/Phòng không hợp lệ.', true); return;
+            }
+
+            const userData = {
+                id: username, 
+                fullName: fullName,
+                departmentId: departmentId,
+                departmentName: dept.name, 
+                role: 'department', 
+                email: `${username.toLowerCase().replace(/\s+/g, '.')}@benhvien.vn`, 
+                phone: users[originalUserId]?.phone || 'N/A' 
+            };
+            if (password) {
+                userData.password = password;
+            }
+
+
+            try {
+                let backendResponse;
+                if (originalUserId) { 
+                     if (users[originalUserId]) { 
+                        userData.id = originalUserId; 
+                        backendResponse = await postData(`users/${originalUserId}`, userData);
+                        users[originalUserId] = backendResponse.user;
+                        showToast('Cập nhật tài khoản thành công.');
+                    } else {
+                        showToast('Lỗi: Không tìm thấy người dùng để cập nhật.', true);
+                        return;
+                    }
+                } else { 
+                    if (!password) {
+                        showToast('Mật khẩu là bắt buộc cho tài khoản mới.', true); return;
+                    }
+                    if (users[username]) {
+                        showToast('Tên đăng nhập đã tồn tại.', true); return;
+                    }
+                    backendResponse = await postData('users', userData);
+                    users[username] = backendResponse.user;
+                    showToast('Thêm tài khoản thành công.');
+                }
+                renderUsersTable(); closeModal();
+            } catch (error) { /* showToast handled in postData */ }
+        };
+        
+        async function deleteUser(userIdToDelete) {
+            if (users[userIdToDelete]) {
+                const hasRequests = repairRequests.some(req => req.requestingUserId === userIdToDelete && 
+                                (req.status === 'Chờ tiếp nhận' || req.status === 'Đã tiếp nhận' || req.status === 'Đang xử lý'));
+                if(hasRequests){
+                    showToast(`Không thể xóa người dùng ${userIdToDelete} (${users[userIdToDelete].fullName}) vì còn yêu cầu đang xử lý.`, true);
+                    return;
+                }
+                if (confirm(`Bạn có chắc chắn muốn xóa tài khoản ${userIdToDelete} (${users[userIdToDelete].fullName}) không?`)) {
+                    try {
+                        await deleteData('users', userIdToDelete);
+                        delete users[userIdToDelete];
+                        showToast(`Tài khoản ${userIdToDelete} đã được xóa.`);
+                        renderUsersTable();
+                    } catch (error) { /* showToast handled in deleteData */ }
+                }
+            } else {
+                showToast('Lỗi: Không tìm thấy người dùng để xóa.', true);
+            }
+        }
+
+        // Department Management
+        function renderDepartmentsTable() {
+            if (!currentUser || currentUser.role !== 'admin') return;
+            departmentsTableBody.innerHTML = '';
+            const manageableDepartments = departments.filter(d => d.id !== 'VT') 
+                                               .sort((a,b) => a.name.localeCompare(b.name));
+            const noDeptsMsg = document.getElementById('no-departments');
+
+            if (manageableDepartments.length === 0) {
+                if(noDeptsMsg) noDeptsMsg.classList.remove('hidden');
+                return;
+            }
+            if(noDeptsMsg) noDeptsMsg.classList.add('hidden');
+
+            manageableDepartments.forEach(dept => {
+                const row = departmentsTableBody.insertRow();
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">${dept.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${dept.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${dept.contactPerson || 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${dept.phone || 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${dept.email || 'N/A'}</td>
+                    <td class="px-6 py-4 text-center whitespace-nowrap">
+                        <button class="text-red-600 hover:text-red-800 delete-department-btn" data-id="${dept.id}">Xóa</button>
+                    </td>
+                `;
+            });
+            document.querySelectorAll('.delete-department-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    handleDeleteDepartment(this.dataset.id);
+                });
+            });
+        }
+
+        addDepartmentForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const deptName = document.getElementById('dept-name').value.trim();
+            const deptCode = document.getElementById('dept-code').value.trim().toUpperCase(); 
+            const deptContact = document.getElementById('dept-contact-person').value.trim();
+            const deptPhone = document.getElementById('dept-phone').value.trim();
+            const deptEmail = document.getElementById('dept-email').value.trim();
+
+            if (!deptName || !deptCode) {
+                showToast('Tên Khoa/Phòng và Mã Khoa/Phòng là bắt buộc.', true);
+                return;
+            }
+            if (departments.some(d => d.id === deptCode)) {
+                showToast('Mã Khoa/Phòng đã tồn tại.', true);
+                return;
+            }
+
+            const newDeptData = {
+                id: deptCode, 
+                name: deptName,
+                contactPerson: deptContact,
+                phone: deptPhone,
+                email: deptEmail
+            };
+            try {
+                const backendResponse = await postData('departments', newDeptData);
+                departments.push(backendResponse.department);
+                showToast(`Đã thêm Khoa/Phòng: ${deptName}`);
+                addDepartmentForm.reset();
+                renderDepartmentsTable();
+                populateDepartmentFilter(); 
+                populateDepartmentSelect('modal-user-department'); 
+                renderRequestsByDeptChart(); 
+            } catch (error) { /* showToast handled in postData */ }
+        });
+
+        async function handleDeleteDepartment(deptIdToDelete) {
+            if (deptIdToDelete === 'VT') {
+                showToast('Không thể xóa Phòng Vật tư TBYT.', true);
+                return;
+            }
+            const isUserAssociated = Object.values(users).some(user => user.departmentId === deptIdToDelete);
+            if (isUserAssociated) {
+                showToast('Không thể xóa khoa/phòng này vì còn tài khoản người dùng liên kết.', true);
+                return;
+            }
+            const isRequestAssociated = repairRequests.some(req => req.departmentId === deptIdToDelete);
+            if (isRequestAssociated) {
+                showToast('Không thể xóa khoa/phòng này vì còn yêu cầu sửa chữa liên kết.', true);
+                return;
+            }
+
+            if (confirm(`Bạn có chắc chắn muốn xóa khoa/phòng có mã "${deptIdToDelete}" không?`)) {
+                 try {
+                    await deleteData('departments', deptIdToDelete);
+                    departments = departments.filter(dept => dept.id !== deptIdToDelete);
+                    showToast(`Đã xóa khoa/phòng mã: ${deptIdToDelete}`);
+                    renderDepartmentsTable();
+                    populateDepartmentFilter();
+                    populateDepartmentSelect('modal-user-department');
+                    renderRequestsByDeptChart();
+                } catch (error) { /* showToast handled in deleteData */ }
+            }
+        }
+
+
+        function renderRequestsByDeptChart() {
+            if (!currentUser || currentUser.role !== 'admin') return;
+            const canvas = document.getElementById('requestsByDeptChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            
+            const deptCounts = departments.filter(d => d.id !== 'VT').map(dept => { 
+                const count = repairRequests.filter(req => req.departmentId === dept.id).length;
+                return { name: dept.name, count: count };
+            });
+
+            const labels = deptCounts.map(d => d.name);
+            const data = deptCounts.map(d => d.count);
+
+            if (requestsChart) requestsChart.destroy();
+            canvas.style.display = 'block';
+
+            requestsChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Số lượng yêu cầu', data: data,
+                        backgroundColor: 'rgba(59, 130, 246, 0.7)', 
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 1, borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: 'Số lượng yêu cầu' }, ticks: { stepSize: 1, precision: 0 }},
+                        x: { title: { display: true, text: 'Khoa/Phòng' } }
+                    },
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => ` Số yêu cầu: ${context.parsed.y}` }}}
+                }
+            });
+        }
+        
+        attemptAutoLogin();
+    });
+</script>
+
+</body>
+</html>
