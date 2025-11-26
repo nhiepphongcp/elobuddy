@@ -1,0 +1,58 @@
+[
+    {
+        "equipmentName": "12312",
+        "problemDescription": "123123",
+        "submissionTimestamp": "2025-06-05 14:12:16",
+        "status": "Đã tiếp nhận",
+        "requestingUserId": "khoa_hstc",
+        "departmentId": "HSTC",
+        "id": 1,
+        "receptionTimestamp": "2025-06-05 14:20:24",
+        "completionTimestamp": null,
+        "inspectionResult": "",
+        "solutionDetails": "",
+        "inspectionTimestamp": null
+    },
+    {
+        "equipmentName": "23123",
+        "problemDescription": "123123124",
+        "submissionTimestamp": "2025-06-05 17:42:35",
+        "status": "Chờ tiếp nhận",
+        "requestingUserId": "khoa_hstc",
+        "departmentId": "HSTC",
+        "id": 2,
+        "receptionTimestamp": null,
+        "completionTimestamp": null,
+        "inspectionResult": "",
+        "solutionDetails": "",
+        "inspectionTimestamp": null
+    },
+    {
+        "equipmentName": "jhsjkdfhsdfjk",
+        "problemDescription": "lksdfkljsdfklj",
+        "submissionTimestamp": "2025-06-05 17:44:29",
+        "status": "Chờ tiếp nhận",
+        "requestingUserId": "khoa_hstc",
+        "departmentId": "HSTC",
+        "id": 3,
+        "receptionTimestamp": null,
+        "completionTimestamp": null,
+        "inspectionResult": "",
+        "solutionDetails": "",
+        "inspectionTimestamp": null
+    },
+    {
+        "equipmentName": "máy soi",
+        "problemDescription": "ádjhaskdfkajs",
+        "submissionTimestamp": "2025-06-05 17:52:44",
+        "status": "Hoàn thành",
+        "requestingUserId": "khoa_noi",
+        "departmentId": "NOI",
+        "id": 4,
+        "receptionTimestamp": "2025-06-05 17:54:03",
+        "completionTimestamp": "2025-06-05 17:54:15",
+        "inspectionResult": "hỏng",
+        "solutionDetails": "huỷ",
+        "inspectionTimestamp": "2025-06-05 17:54:15"
+    }
+]

@@ -1,0 +1,23 @@
+[
+    {
+        "id": "HSTC",
+        "name": "Khoa Hồi sức tích cực",
+        "contactPerson": "Bs. An",
+        "phone": "111",
+        "email": "hstc@bv.vn"
+    },
+    {
+        "id": "NOI",
+        "name": "Khoa Nội tổng hợp",
+        "contactPerson": "Bs. Bình",
+        "phone": "222",
+        "email": "noi@bv.vn"
+    },
+    {
+        "id": "VT",
+        "name": "Phòng Vật tư TBYT",
+        "contactPerson": "Admin VT",
+        "phone": "000",
+        "email": "vt@bv.vn"
+    }
+]

@@ -1,0 +1,32 @@
+{
+    "admin": {
+        "id": "admin",
+        "password": "admin",
+        "role": "admin",
+        "fullName": "Admin Vật Tư",
+        "departmentName": "Phòng Vật tư TBYT",
+        "departmentId": "VT",
+        "email": "admin.vt@benhvien.vn",
+        "phone": "0123456789"
+    },
+    "khoa_hstc": {
+        "id": "khoa_hstc",
+        "password": "123",
+        "role": "department",
+        "fullName": "Nguyễn Văn An",
+        "departmentName": "Khoa Hồi sức tích cực",
+        "departmentId": "HSTC",
+        "email": "van.an@benhvien.vn",
+        "phone": "0987654321"
+    },
+    "khoa_noi": {
+        "id": "khoa_noi",
+        "fullName": "Vũ Thị Thuỷ",
+        "departmentId": "NOI",
+        "departmentName": "Khoa Nội tổng hợp",
+        "role": "department",
+        "email": "khoa_noi@benhvien.vn",
+        "phone": "N/A",
+        "password": "123"
+    }
+}
